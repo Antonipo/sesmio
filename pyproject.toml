@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sesmio"
+version = "0.1.0"
+description = "Framework-agnostic AWS SES wrapper for Python"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [
+    {name = "Antonio Rodriguez", email = "luis.documentos1706@gmail.com"},
+]
+readme = "README.md"
+keywords = ["ses", "aws", "email", "boto3", "smtp"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Communications :: Email",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = ["boto3>=1.34"]
+
+[project.optional-dependencies]
+dev = ["pytest", "moto[ses]", "pytest-cov", "ruff", "mypy", "boto3-stubs[sesv2]"]
+
+[project.urls]
+Homepage = "https://github.com/Antonipo/sesmio"
+Repository = "https://github.com/Antonipo/sesmio"
+Issues = "https://github.com/Antonipo/sesmio/issues"
+Changelog = "https://github.com/Antonipo/sesmio/blob/main/CHANGELOG.md"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sesmio"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--tb=short"
