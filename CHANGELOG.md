@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - unreleased
+
+### Fixed
+
+- Email inliner drops content after MSO conditional comments on Python 3.12.3.
+  A regression in CPython 3.12.3's `html.parser` silently truncates input when
+  it encounters `<![endif]-->` markup (used by the downlevel-revealed
+  conditional comment trick for Outlook bulletproof buttons). Content after
+  the first `Button` — `Img`, `Link`, `Spacer`, etc. — disappeared entirely.
+  The inliner now stashes `<!--...-->` and `<![...]-->` markers as opaque
+  placeholders before parsing and splices them back after serialization, so
+  the parser never sees the problematic markup. Fix is parser-agnostic and
+  applies to all Python versions.
+
 ## [0.3.0] - unreleased
 
 ### Added

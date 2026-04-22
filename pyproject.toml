@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sesmio"
-version = "0.3.0"
+version = "0.3.1"
 description = "Framework-agnostic AWS SES wrapper for Python"
 requires-python = ">=3.10"
 license = "Apache-2.0"

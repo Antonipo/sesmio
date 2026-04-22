@@ -293,6 +293,19 @@ def inline_css(html: str, extra_css: str = "") -> str:
         HTML with ``<style>`` blocks removed (or reduced to media-query
         fallback) and all inlineable rules merged into ``style=`` attributes.
     """
+    # Python 3.12.3's html.parser truncates input when it encounters certain
+    # conditional comments (fixed in 3.12.4+). We stash every comment behind an
+    # opaque placeholder before parsing and splice them back in on output.
+    stashed_comments: list[str] = []
+
+    def _stash(m: re.Match[str]) -> str:
+        stashed_comments.append(m.group(0))
+        return f"\x00SESMIO_COMMENT_{len(stashed_comments) - 1}\x00"
+
+    # Stash both real comments and downlevel-revealed MSO markers like
+    # `<![endif]-->`, which are not valid HTML comments and confuse the parser.
+    html = re.sub(r"<!--.*?-->|<!\[[^\]]+\]-->", _stash, html, flags=re.DOTALL)
+
     builder = _TreeBuilder()
     builder.feed(html)
     root = builder._root
@@ -353,5 +366,12 @@ def inline_css(html: str, extra_css: str = "") -> str:
             result = result.replace("</head>", f"{style_block}</head>", 1)
         else:
             result = style_block + result
+
+    if stashed_comments:
+        result = re.sub(
+            r"\x00SESMIO_COMMENT_(\d+)\x00",
+            lambda m: stashed_comments[int(m.group(1))],
+            result,
+        )
 
     return result
