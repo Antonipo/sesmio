@@ -24,6 +24,7 @@ msg_id = ses.send(
 - [Features](#features)
 - [Installation](#installation)
 - [Quick start](#quick-start)
+- [Multiple recipients and privacy](#multiple-recipients-and-privacy)
 - [Attachments](#attachments)
 - [Tags](#tags)
 - [Custom headers](#custom-headers)
@@ -115,6 +116,60 @@ msg_id = ses.send(
     html="<p>Hello team</p>",
 )
 ```
+
+## Multiple recipients and privacy
+
+By default, `ses.send(to=[...])` sends **a single email** with every address
+listed in the `To:` header — **all recipients see each other's emails**. This
+is standard SMTP behavior, identical to writing a regular email to several
+people at once. The same applies to `cc=[...]`.
+
+```python
+ses.send(
+    to=["a@example.com", "b@example.com", "c@example.com"],
+    subject="Team update",
+    html="<p>Hi team</p>",
+)
+# → one email, 'To:' header shows all three addresses
+```
+
+This is intentional: sesmio never silently changes what the recipient sees.
+If you need each recipient to receive a separate email without seeing the
+others, use one of these patterns explicitly:
+
+**BCC — same content, few recipients:**
+
+```python
+ses.send(
+    to="no-reply@yourdomain.com",              # visible To
+    bcc=["a@example.com", "b@example.com"],    # hidden recipients
+    subject="Announcement",
+    html="<p>...</p>",
+)
+```
+
+**Loop — per-recipient content:**
+
+```python
+for user in users:
+    ses.send(to=user.email, subject=f"Hi {user.name}", html=render(user))
+```
+
+**`ses.bulk()` — many recipients, personalised content, automatic chunking:**
+
+```python
+from sesmio import Recipient
+
+ses.bulk(
+    template=welcome_template,
+    recipients=[Recipient(to=u.email, args={"name": u.name}) for u in users],
+    subject="Welcome",
+    from_="no-reply@yourdomain.com",
+).send()
+```
+
+See [Bulk sending](#bulk-sending) for details — it handles per-recipient
+errors, retries, and chunking at SES's 50-per-call limit automatically.
 
 ## Attachments
 
