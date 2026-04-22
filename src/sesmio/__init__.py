@@ -19,7 +19,7 @@ Exports:
     SesmioError and subclasses: Full exception hierarchy.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from sesmio.client import SES  # noqa: E402
 from sesmio.exceptions import (

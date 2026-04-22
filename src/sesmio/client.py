@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import boto3
 from botocore.exceptions import ClientError
@@ -16,8 +16,11 @@ from sesmio._internal.validation import (
     check_size,
     validate_emails,
 )
-from sesmio.exceptions import ConfigurationError, _map_client_error
+from sesmio.exceptions import ConfigurationError, ValidationError, _map_client_error
 from sesmio.message import AttachmentLike, MimeBuilder
+
+if TYPE_CHECKING:
+    from sesmio.email.components import Html, Node
 
 _default_logger = logging.getLogger("sesmio")
 
@@ -110,6 +113,8 @@ class SES:
         subject: str,
         html: str | None = None,
         text: str | None = None,
+        template: "Html | Node | None" = None,
+        tailwind: bool = False,
         from_: str | None = None,
         cc: str | list[str] | None = None,
         bcc: str | list[str] | None = None,
@@ -125,8 +130,12 @@ class SES:
         Args:
             to: Recipient address(es).
             subject: Email subject line.
-            html: HTML body. Either *html* or *text* must be provided.
-            text: Plain-text body. Auto-generated from *html* if omitted.
+            html: HTML body. Mutually exclusive with *template*.
+            text: Plain-text body. Auto-generated from *html* or *template* if omitted.
+            template: Component tree root. Mutually exclusive with *html*.
+                Renders to both HTML and plain-text automatically.
+            tailwind: When ``True`` and *html* is provided, resolve Tailwind
+                utility classes and inline all CSS. Ignored when *template* is used.
             from_: Sender address. Falls back to ``default_from`` set on the instance.
             cc: Carbon-copy recipient(s).
             bcc: Blind carbon-copy recipient(s).
@@ -144,6 +153,7 @@ class SES:
 
         Raises:
             ConfigurationError: No sender address available.
+            ValidationError: Both *html* and *template* were provided.
             InvalidRecipientError: An address fails RFC 5322 validation.
             HeaderInjectionError: A header value contains CR or LF.
             MessageTooLargeError: Total message exceeds 10 MB.
@@ -152,6 +162,23 @@ class SES:
             DailyQuotaExceededError: 24-hour quota exhausted.
             ServiceUnavailableError: SES 5xx (retried automatically).
         """
+        if html is not None and template is not None:
+            raise ValidationError("Provide either html= or template=, not both.")
+
+        # Render component template → html + auto-text.
+        if template is not None:
+            from sesmio.email.render import render as _render
+
+            html, auto_text = _render(template)
+            if text is None:
+                text = auto_text
+        elif html is not None and tailwind:
+            # Resolve Tailwind classes in raw HTML and inline all CSS.
+            from sesmio.email.inliner import inline_css
+
+            # Build per-class CSS block so the inliner can process class= attrs.
+            html = inline_css(html)
+
         sender = from_ or self._default_from
         if sender is None:
             raise ConfigurationError(

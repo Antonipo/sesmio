@@ -281,6 +281,110 @@ ses = SES(boto3_session=session)
 ses = SES(region_name="us-east-1", max_retries=5)
 ```
 
+## Email templates
+
+Build email HTML using composable Python components — no Jinja, no HTML strings,
+no Node toolchain.
+
+### Welcome email example
+
+```python
+from sesmio import SES
+from sesmio.email import Html, Head, Body, Container, Heading, Text, Hr, Button, Img, Spacer
+
+def welcome_email(name: str, cta_url: str):
+    return Html(
+        head=Head(title="Welcome!", preview=f"Hi {name}, thanks for signing up"),
+        body=Body(
+            children=Container(
+                children=[
+                    Img(src="https://example.com/logo.png", alt="Company logo", width=160),
+                    Spacer(height=24),
+                    Heading(text=f"Hello {name}!", level=1),
+                    Text(text="Thanks for registering on our platform. We're thrilled to have you."),
+                    Hr(),
+                    Button(href=cta_url, children="Get Started", bg="#4f46e5", color="#ffffff"),
+                    Spacer(height=32),
+                    Text(text="Questions? Reply to this email — we read every one."),
+                ]
+            )
+        ),
+    )
+
+ses = SES(region_name="us-east-1", default_from="no-reply@example.com")
+ses.send(
+    to="user@example.com",
+    subject="Welcome to Example!",
+    template=welcome_email("Ana", "https://example.com/start"),
+)
+```
+
+`render()` returns `(html, text)` — use it directly if you need both:
+
+```python
+from sesmio.email import render
+
+html, text = render(welcome_email("Ana", "https://example.com/start"))
+print(text)  # clean plain-text version, auto-generated from the tree
+```
+
+Preview locally before sending:
+
+```python
+from sesmio.email import render_preview
+
+render_preview(welcome_email("Ana", "https://example.com/start"), "welcome.html")
+# Logs: preview.written: file:///…/welcome.html — click to open in browser
+```
+
+### Available components
+
+| Component | Description |
+|---|---|
+| `Html(head, body, lang="en")` | Root document element |
+| `Head(title, preview, meta)` | `<head>` with charset, viewport, and inbox preview text |
+| `Body(children, bg="#ffffff")` | `<body>` with background color |
+| `Container(children, width=600)` | Centered, fixed-width layout table |
+| `Section(children, padding=None)` | Vertical section (`<tr><td>`) |
+| `Row(children)` | Table row for multi-column layouts |
+| `Column(children, width=None)` | Table column (`<td>`) |
+| `Heading(text, level=1)` | `<h1>`–`<h6>` |
+| `Text(text)` | `<p>` paragraph |
+| `Link(href, children)` | `<a>` anchor |
+| `Button(href, children, bg, color)` | Bulletproof Outlook-compatible button |
+| `Img(src, alt, width, height)` | Image (alt required) |
+| `Hr(color="#e5e7eb")` | Horizontal rule |
+| `Spacer(height=16)` | Vertical whitespace |
+| `Preview(text)` | Hidden inbox preview text |
+| `CodeBlock(code, lang)` | Preformatted code |
+| `Raw(html_string)` | Raw HTML escape hatch (warns on use) |
+
+All `text`/`children` string values are HTML-escaped automatically.
+Use `Raw()` only for trusted HTML — it bypasses escaping and logs a warning.
+
+### Tailwind utilities with raw HTML
+
+Apply Tailwind utility classes to plain HTML without a build step:
+
+```python
+ses.send(
+    to="user@example.com",
+    subject="Hello",
+    html="""
+    <div class="max-w-lg mx-auto p-6 bg-white">
+      <h1 class="text-2xl font-bold text-gray-900">Hello</h1>
+      <p class="mt-4 text-gray-600">Email content here.</p>
+    </div>
+    """,
+    tailwind=True,   # resolves ~250 Tailwind classes → inline CSS
+)
+```
+
+The built-in subset covers spacing (`p-*`, `m-*`, `px-*`, …), typography
+(`text-*`, `font-*`, `leading-*`, `tracking-*`), colors (gray, slate, red,
+blue, green, amber palettes), sizing (`w-*`, `max-w-*`), borders, and shadows.
+Unknown classes are silently ignored (logged at `DEBUG`).
+
 ## Troubleshooting
 
 **`ConfigurationError: No sender address`** — pass `from_="..."` to `send()` or set `default_from` when creating the `SES` instance.
