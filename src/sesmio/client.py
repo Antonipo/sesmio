@@ -21,6 +21,8 @@ from sesmio.message import AttachmentLike, MimeBuilder
 
 if TYPE_CHECKING:
     from sesmio.email.components import Html, Node
+    from sesmio.sender import BulkSender, Recipient
+    from sesmio.templates import SESTemplates
 
 _default_logger = logging.getLogger("sesmio")
 
@@ -56,6 +58,7 @@ class SES:
         self._client: Any = None
         self._lock = threading.Lock()
         self._sandbox_checked = False
+        self._templates: SESTemplates | None = None
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -257,3 +260,52 @@ class SES:
         region = self._region_name or "default"
         log_send_success(message_id, len(raw_bytes), region)
         return message_id
+
+    def bulk(
+        self,
+        template: "str | Html | Node",
+        recipients: "list[Recipient]",
+        *,
+        subject: str = "",
+        from_: str | None = None,
+        reply_to: str | list[str] | None = None,
+        tags: dict[str, str] | None = None,
+        configuration_set: str | None = None,
+    ) -> "BulkSender":
+        """Create a :class:`~sesmio.sender.BulkSender` for bulk email sending.
+
+        Args:
+            template: A component tree, a callable that returns a component tree,
+                or a pre-registered SES native template name (string).
+            recipients: List of :class:`~sesmio.sender.Recipient` describing each
+                destination, including per-recipient template args.
+            subject: Email subject. Required when *template* is a component tree.
+            from_: Sender address. Falls back to ``default_from``.
+            reply_to: Reply-To address(es).
+            tags: SES email tags for event tracking.
+            configuration_set: SES configuration set name.
+
+        Returns:
+            A :class:`~sesmio.sender.BulkSender` — call ``.send()`` to execute.
+        """
+        from sesmio.sender import BulkSender
+
+        return BulkSender(
+            ses=self,
+            template=template,
+            recipients=recipients,
+            subject=subject,
+            from_=from_,
+            reply_to=reply_to,
+            tags=tags,
+            configuration_set=configuration_set,
+        )
+
+    @property
+    def templates(self) -> "SESTemplates":
+        """Cached :class:`~sesmio.templates.SESTemplates` accessor."""
+        if self._templates is None:
+            from sesmio.templates import SESTemplates
+
+            self._templates = SESTemplates(self)
+        return self._templates

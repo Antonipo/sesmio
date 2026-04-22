@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - unreleased
+
+### Added
+
+- `SES.bulk(template, recipients, subject=...)` — bulk email builder with `.send()`.
+  Accepts component factories (per-recipient render) or native SES template names
+  (`SendBulkEmail`). Auto-chunks to 50 recipients per SES v2 call. Per-recipient
+  errors captured in `BulkResult` rather than aborting the batch.
+- `sesmio.sender.Recipient` — frozen dataclass for per-recipient bulk config:
+  `to`, `args`, `cc`, `bcc`, `replacement_from`, `replacement_reply_to`.
+- `sesmio.sender.BulkResult` — frozen dataclass for per-recipient results:
+  `message_id`, `status`, `error`.
+- `sesmio.templates.SESTemplates` — SES native template manager accessed via
+  `SES.templates`. Methods: `create`, `update`, `delete`, `get`, `list`, `send`.
+- `sesmio.templates.TemplateInfo` — frozen dataclass with `name`, `subject`,
+  `created_at`, `updated_at`.
+- `TemplateDoesNotExistError` — raised when a referenced SES template is not found.
+- `sesmio.integrations.flask.SESExtension` — Flask extension with `send`,
+  `bulk`, `templates`. Supports direct init and application factory (`init_app`).
+  Reads `SESMIO_REGION`, `SESMIO_DEFAULT_FROM`, `SESMIO_MAX_RETRIES` from `app.config`.
+- `sesmio.integrations.fastapi.get_ses` — FastAPI dependency for a singleton
+  `SES` instance. Reads config from `SESMIO_REGION` / `SESMIO_DEFAULT_FROM` /
+  `SESMIO_MAX_RETRIES` env vars.
+- `sesmio.integrations.django.SesmioBackend` — Django `EMAIL_BACKEND` compatible
+  with `send_mail`, `EmailMessage`, `EmailMultiAlternatives`. Reads `settings.SESMIO`
+  dict for config.
+- Optional extras: `sesmio[flask]`, `sesmio[fastapi]`, `sesmio[django]`.
+- PyPI publish GitHub Actions workflow (`.github/workflows/publish.yml`) triggered
+  on `v*` tag push via OIDC Trusted Publishing.
+- Examples: `examples/flask_app.py`, `examples/fastapi_app.py`,
+  `examples/django_project/`, `examples/bulk_send.py`, `examples/native_templates.py`.
+
 ## [0.2.0] - unreleased
 
 ### Added

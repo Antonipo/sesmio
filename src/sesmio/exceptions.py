@@ -18,7 +18,8 @@ meaningful Python exceptions::
     │   ├── AccountSuspendedError
     │   ├── SendingPausedError
     │   ├── MailFromDomainNotVerifiedError
-    │   └── RecipientSuppressedError
+    │   ├── RecipientSuppressedError
+    │   └── TemplateDoesNotExistError
     ├── ThrottlingError
     ├── DailyQuotaExceededError
     └── ServiceUnavailableError
@@ -79,6 +80,10 @@ class MailFromDomainNotVerifiedError(SendError):
 
 class RecipientSuppressedError(SendError):
     """Raised when the recipient address is on the account-level suppression list."""
+
+
+class TemplateDoesNotExistError(SendError):
+    """Raised when the referenced SES native template does not exist."""
 
 
 class ThrottlingError(SesmioError):

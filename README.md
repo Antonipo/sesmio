@@ -385,6 +385,179 @@ The built-in subset covers spacing (`p-*`, `m-*`, `px-*`, …), typography
 blue, green, amber palettes), sizing (`w-*`, `max-w-*`), borders, and shadows.
 Unknown classes are silently ignored (logged at `DEBUG`).
 
+## Bulk sending
+
+Send to many recipients efficiently — recipients are chunked into groups of 50,
+processed concurrently, and errors per recipient are captured without aborting
+the batch.
+
+```python
+from sesmio import SES
+from sesmio.email import Html, Head, Body, Container, Heading, Text, Button
+from sesmio.sender import Recipient
+
+ses = SES(region_name="us-east-1", default_from="no-reply@example.com")
+
+def welcome_template(first_name: str = "there", cta_url: str = "") -> Html:
+    return Html(
+        Head(title="Welcome!"),
+        Body(Container(
+            Heading(f"Hi {first_name}!"),
+            Text("Thanks for joining us."),
+            Button(href=cta_url, children="Get Started"),
+        )),
+    )
+
+results = ses.bulk(
+    welcome_template,          # called with each recipient's args
+    recipients=[
+        Recipient(to="alice@example.com", args={"first_name": "Alice", "cta_url": "https://example.com/alice"}),
+        Recipient(to="bob@example.com",   args={"first_name": "Bob",   "cta_url": "https://example.com/bob"}),
+    ],
+    subject="Welcome to our platform!",
+).send()
+
+for r in results:
+    print(r.message_id if r.status == "success" else r.error)
+```
+
+Use a pre-registered SES native template for maximum efficiency (`SendBulkEmail`):
+
+```python
+ses.templates.create("welcome_v1", subject="Welcome, {{name}}!", template="<p>Hi {{name}}</p>")
+
+results = ses.bulk(
+    "welcome_v1",  # string → uses SendBulkEmail API
+    recipients=[
+        Recipient(to="alice@example.com", args={"name": "Alice"}),
+        Recipient(to="bob@example.com",   args={"name": "Bob"}),
+    ],
+    subject="Welcome!",
+).send()
+```
+
+## Native SES templates
+
+```python
+ses.templates.create("welcome", subject="Hello, {{name}}!", template="<p>Hi {{name}}</p>")
+ses.templates.send(to="user@example.com", template_name="welcome", data={"name": "Ana"})
+ses.templates.update("welcome", subject="Updated subject", template="<p>New body</p>")
+ses.templates.delete("welcome")
+for t in ses.templates.list():
+    print(t.name)
+```
+
+## Framework integrations
+
+### Flask
+
+```bash
+pip install sesmio[flask]
+```
+
+```python
+from flask import Flask, request
+from sesmio.integrations.flask import SESExtension
+
+app = Flask(__name__)
+ses = SESExtension(app, default_from="no-reply@example.com")
+
+@app.route("/signup", methods=["POST"])
+def signup():
+    ses.send(
+        to=request.json["email"],
+        subject="Welcome!",
+        html="<p>Thanks for signing up.</p>",
+    )
+    return "ok"
+```
+
+Application factory pattern:
+
+```python
+ses = SESExtension()
+
+def create_app():
+    app = Flask(__name__)
+    app.config["SESMIO_REGION"] = "us-east-1"
+    app.config["SESMIO_DEFAULT_FROM"] = "no-reply@example.com"
+    ses.init_app(app)
+    return app
+```
+
+### FastAPI
+
+```bash
+pip install sesmio[fastapi]
+```
+
+```python
+from fastapi import FastAPI, Depends
+from sesmio import SES
+from sesmio.integrations.fastapi import get_ses
+
+app = FastAPI()
+
+@app.post("/signup")
+def signup(email: str, ses: SES = Depends(get_ses)):
+    msg_id = ses.send(to=email, subject="Welcome!", html="<p>Thanks for signing up.</p>")
+    return {"message_id": msg_id}
+```
+
+Set config via environment variables:
+```bash
+export SESMIO_REGION=us-east-1
+export SESMIO_DEFAULT_FROM=no-reply@example.com
+```
+
+### Django
+
+```bash
+pip install sesmio[django]
+```
+
+```python
+# settings.py
+EMAIL_BACKEND = "sesmio.integrations.django.SesmioBackend"
+SESMIO = {
+    "region_name": "us-east-1",
+    "default_from": "no-reply@example.com",
+}
+
+# views.py
+from django.core.mail import send_mail, EmailMultiAlternatives
+
+# Plain text
+send_mail("Hello", "Text body", "from@example.com", ["to@example.com"])
+
+# HTML
+msg = EmailMultiAlternatives("Subject", "Text body", "from@example.com", ["to@example.com"])
+msg.attach_alternative("<p>HTML body</p>", "text/html")
+msg.send()
+```
+
+## Releasing to PyPI
+
+### First-time setup (once)
+
+1. Go to [PyPI Trusted Publishers](https://pypi.org/manage/account/publishing/) and add a publisher:
+   - **Owner**: your GitHub username or org
+   - **Repository name**: `sesmio`
+   - **Workflow name**: `publish.yml`
+   - **Environment name**: `pypi`
+2. In your GitHub repository settings → Environments → create `pypi` environment.
+
+### Publish a release
+
+```bash
+git tag v0.3.0
+git push origin v0.3.0
+```
+
+GitHub Actions runs the full test matrix (ruff, mypy, pytest) and, on success,
+builds and publishes to PyPI via OIDC — no API token needed. You can also trigger
+manually via Actions → Publish to PyPI → Run workflow.
+
 ## Troubleshooting
 
 **`ConfigurationError: No sender address`** — pass `from_="..."` to `send()` or set `default_from` when creating the `SES` instance.
@@ -412,8 +585,8 @@ pip install -e ".[dev]"
 pytest                          # run all tests (moto mocks AWS)
 pytest --cov=sesmio             # with coverage
 pytest -k "sandbox"             # run specific tests
-ruff check src/                 # lint
-ruff format src/                # format
+ruff check src/ tests/          # lint
+ruff format src/ tests/         # format
 mypy --strict src/sesmio/       # type check
 ```
 

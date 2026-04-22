@@ -1,0 +1,83 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Reason for manual publish"
+        required: false
+        default: "Emergency manual publish"
+
+permissions:
+  contents: read
+  id-token: write  # Required for Trusted Publishing (OIDC)
+
+jobs:
+  test:
+    name: Run full test suite
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv venv --python ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv pip install -e ".[dev]"
+
+      - name: Lint — ruff check
+        run: uv run ruff check src/ tests/
+
+      - name: Lint — ruff format
+        run: uv run ruff format --check src/ tests/
+
+      - name: Type check — mypy
+        run: uv run mypy --strict src/sesmio/
+
+      - name: Tests with coverage
+        run: uv run pytest --cov=sesmio --cov-report=term-missing --cov-fail-under=90
+
+  build-and-publish:
+    name: Build and publish to PyPI
+    needs: test
+    runs-on: ubuntu-latest
+    # Only publish from the test matrix using one Python version.
+    environment:
+      name: pypi
+      url: https://pypi.org/p/sesmio
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv venv --python 3.11
+
+      - name: Install build dependencies
+        run: uv pip install build
+
+      - name: Build distribution
+        run: uv build
+
+      - name: Verify dist contents
+        run: ls -la dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # No API token needed — uses OIDC Trusted Publishing.
+        # Configure on PyPI: https://pypi.org/manage/account/publishing/
+        # Publisher settings:
+        #   Owner: <your-github-org-or-username>
+        #   Repository: sesmio
+        #   Workflow: publish.yml
+        #   Environment: pypi

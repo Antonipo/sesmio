@@ -25,10 +25,10 @@ jobs:
         run: uv pip install -e ".[dev]"
 
       - name: Lint — ruff check
-        run: uv run ruff check src/
+        run: uv run ruff check src/ tests/
 
       - name: Lint — ruff format
-        run: uv run ruff format --check src/
+        run: uv run ruff format --check src/ tests/
 
       - name: Type check — mypy
         run: uv run mypy --strict src/sesmio/

@@ -19,7 +19,7 @@ Exports:
     SesmioError and subclasses: Full exception hierarchy.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 from sesmio.client import SES  # noqa: E402
 from sesmio.exceptions import (
@@ -37,9 +37,12 @@ from sesmio.exceptions import (
     SendingPausedError,
     ServiceUnavailableError,
     SesmioError,
+    TemplateDoesNotExistError,
     ThrottlingError,
     ValidationError,
 )
+from sesmio.sender import BulkResult, BulkSender, Recipient
+from sesmio.templates import SESTemplates, TemplateInfo
 
 __all__ = [
     "__version__",
@@ -57,7 +60,13 @@ __all__ = [
     "SendingPausedError",
     "MailFromDomainNotVerifiedError",
     "RecipientSuppressedError",
+    "TemplateDoesNotExistError",
     "ThrottlingError",
     "DailyQuotaExceededError",
     "ServiceUnavailableError",
+    "BulkSender",
+    "BulkResult",
+    "Recipient",
+    "SESTemplates",
+    "TemplateInfo",
 ]
